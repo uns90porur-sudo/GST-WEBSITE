@@ -15,7 +15,7 @@ let profile      = JSON.parse(localStorage.getItem(PROF_KEY)|| '{}');
 let selectedIds  = new Set();
 let currentView  = 'dashboard';
 
-window.API = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
+window.API = 'http://127.0.0.1:3000';
 
 // ── Save ──
 function save() {

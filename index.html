@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexCA — CA Practice Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ░░ KEYBOARD SHORTCUTS OVERLAY ░░ -->
+<div id="shortcuts-overlay" class="overlay hidden">
+  <div class="overlay-box shortcuts-box">
+    <div class="overlay-head"><h3><i class="ph ph-keyboard"></i> Keyboard Shortcuts</h3><button onclick="closeOverlay('shortcuts-overlay')" class="ov-close"><i class="ph ph-x"></i></button></div>
+    <div class="shortcuts-grid">
+      <div class="sk-row"><kbd>Ctrl K</kbd><span>Global Search</span></div>
+      <div class="sk-row"><kbd>Ctrl N</kbd><span>Add New Client</span></div>
+      <div class="sk-row"><kbd>Ctrl D</kbd><span>Go to Dashboard</span></div>
+      <div class="sk-row"><kbd>Ctrl G</kbd><span>Go to GST Filings</span></div>
+      <div class="sk-row"><kbd>Ctrl T</kbd><span>Go to IT Returns</span></div>
+      <div class="sk-row"><kbd>Ctrl M</kbd><span>Open Tax Calendar</span></div>
+      <div class="sk-row"><kbd>Ctrl B</kbd><span>Bulk WhatsApp</span></div>
+      <div class="sk-row"><kbd>Ctrl /</kbd><span>Show this panel</span></div>
+      <div class="sk-row"><kbd>Esc</kbd><span>Close any panel</span></div>
+      <div class="sk-row"><kbd>Ctrl E</kbd><span>Export Excel</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ TAX CALENDAR OVERLAY ░░ -->
+<div id="calendar-overlay" class="overlay hidden">
+  <div class="overlay-box calendar-box">
+    <div class="overlay-head"><h3><i class="ph ph-calendar"></i> Tax Due Date Calendar</h3><button onclick="closeOverlay('calendar-overlay')" class="ov-close"><i class="ph ph-x"></i></button></div>
+    <div id="cal-render"></div>
+    <div class="cal-legend">
+      <span class="leg-item"><span class="leg-dot gst-dot"></span>GST</span>
+      <span class="leg-item"><span class="leg-dot it-dot"></span>Income Tax</span>
+      <span class="leg-item"><span class="leg-dot tds-dot"></span>TDS</span>
+      <span class="leg-item"><span class="leg-dot adv-dot"></span>Advance Tax</span>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ BULK WHATSAPP OVERLAY ░░ -->
+<div id="bulk-wa-overlay" class="overlay hidden">
+  <div class="overlay-box bulk-wa-box">
+    <div class="overlay-head"><h3><i class="ph ph-whatsapp-logo" style="color:#25d366"></i> Bulk WhatsApp Sender</h3><button onclick="closeOverlay('bulk-wa-overlay')" class="ov-close"><i class="ph ph-x"></i></button></div>
+    <div class="bwa-body">
+      <div class="bwa-left">
+        <div class="bwa-filters">
+          <label class="field-lbl">Filter Clients</label>
+          <select id="bwa-type-filter" class="sel-inp" onchange="renderBwaList()">
+            <option value="all">All Clients</option>
+            <option value="gst">GST Only</option>
+            <option value="it">IT Only</option>
+            <option value="both">GST & IT</option>
+            <option value="pending-gst">Pending GST</option>
+            <option value="pending-it">Pending ITR</option>
+          </select>
+          <div class="bwa-select-all">
+            <input type="checkbox" id="bwa-check-all" onchange="toggleAllBwa(this.checked)">
+            <label for="bwa-check-all">Select All</label>
+            <span id="bwa-count" class="bwa-chip">0 selected</span>
+          </div>
+        </div>
+        <div id="bwa-client-list" class="bwa-list"></div>
+      </div>
+      <div class="bwa-right">
+        <label class="field-lbl">Message Template</label>
+        <div class="bwa-templates">
+          <button class="tpl-btn" onclick="setBwaTemplate('gst_due')"><i class="ph ph-clock"></i> GST Due</button>
+          <button class="tpl-btn" onclick="setBwaTemplate('itr_due')"><i class="ph ph-file-text"></i> ITR Due</button>
+          <button class="tpl-btn" onclick="setBwaTemplate('docs_req')"><i class="ph ph-folder-open"></i> Docs Req</button>
+          <button class="tpl-btn" onclick="setBwaTemplate('filed_ok')"><i class="ph ph-check-circle"></i> Filed!</button>
+          <button class="tpl-btn" onclick="setBwaTemplate('adv_tax')"><i class="ph ph-bank"></i> Adv Tax</button>
+        </div>
+        <textarea id="bwa-message" class="bwa-msg" rows="7" placeholder="Type or select a template…"></textarea>
+        <div class="bwa-actions">
+          <button class="btn-wa-send" onclick="sendBulkWa()"><i class="ph ph-paper-plane-tilt"></i> Open WhatsApp for Each</button>
+          <small style="color:var(--txt-muted);margin-top:6px;display:block">Opens WhatsApp Web for each selected client in sequence.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ NOTIFICATIONS PANEL ░░ -->
+<div id="notif-panel" class="notif-panel hidden">
+  <div class="notif-head"><span>Notifications</span><button onclick="document.getElementById('notif-panel').classList.add('hidden')" class="ov-close"><i class="ph ph-x"></i></button></div>
+  <div id="notif-list" class="notif-list"></div>
+</div>
+
+<!-- ░░ CLIENT DETAIL PANEL ░░ -->
+<div id="client-detail-overlay" class="overlay hidden">
+  <div class="overlay-box client-detail-box">
+    <div id="client-detail-inner"></div>
+  </div>
+</div>
+
+<!-- ░░ ADD/EDIT CLIENT MODAL ░░ -->
+<div id="client-modal" class="overlay hidden">
+  <div class="overlay-box client-modal-box">
+    <div class="overlay-head">
+      <h3 id="client-modal-title"><i class="ph ph-user-plus"></i> Add New Client</h3>
+      <button onclick="closeOverlay('client-modal')" class="ov-close"><i class="ph ph-x"></i></button>
+    </div>
+    <form id="client-form" onsubmit="submitClientForm(event)" autocomplete="off">
+      <input type="hidden" id="cf-id">
+      <div class="form-grid">
+        <div class="form-col">
+          <div class="fg"><label>Client / Business Name <span class="req">*</span></label><input id="cf-name" required placeholder="e.g. Rajan & Sons" class="txt-inp"></div>
+          <div class="fg"><label>Phone / Mobile</label><input id="cf-phone" placeholder="10-digit mobile" class="txt-inp" maxlength="15"></div>
+          <div class="fg"><label>Email Address</label><input id="cf-email" type="email" placeholder="client@email.com" class="txt-inp"></div>
+          <div class="fg"><label>PAN Number</label><input id="cf-pan" placeholder="ABCDE1234F" class="txt-inp mono-inp" style="text-transform:uppercase"></div>
+        </div>
+        <div class="form-col">
+          <div class="fg"><label>GSTIN</label><input id="cf-gstin" placeholder="33XXXXX…" class="txt-inp mono-inp" style="text-transform:uppercase"></div>
+          <div class="fg"><label>Service Type</label>
+            <select id="cf-type" class="sel-inp">
+              <option value="both">GST & IT</option>
+              <option value="gst">GST Only</option>
+              <option value="it">IT Only</option>
+            </select>
+          </div>
+          <div class="fg"><label>ITR Type</label>
+            <select id="cf-itr" class="sel-inp">
+              <option value="">— Select —</option>
+              <option value="ITR-1">ITR-1 (Sahaj)</option>
+              <option value="ITR-2">ITR-2</option>
+              <option value="ITR-3">ITR-3</option>
+              <option value="ITR-4">ITR-4 (Sugam)</option>
+              <option value="ITR-5">ITR-5</option>
+              <option value="ITR-6">ITR-6</option>
+            </select>
+          </div>
+          <div class="fg"><label>Annual Fee (₹)</label><input id="cf-fee" type="number" placeholder="0" class="txt-inp"></div>
+        </div>
+      </div>
+      <div class="fg" style="margin-top:4px"><label>Network Folder Path <span class="opt">(optional)</span></label>
+        <input id="cf-path" placeholder="e.g. \\CLIENT-2-PC\D\IT FILES\Rajan" class="txt-inp mono-inp">
+        <span class="hint">Windows UNC path to client's folder on the network PC.</span>
+      </div>
+      <div class="fg" style="margin-top:4px"><label>Remarks / Notes</label>
+        <input id="cf-remarks" placeholder="Any initial remarks…" class="txt-inp">
+      </div>
+
+      <!-- ── PARTNER SECTION ── -->
+      <div class="partner-section" style="padding:0 22px;margin-bottom:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <label style="font-size:.76rem;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.03em">
+            <i class="ph ph-users" style="color:var(--navy)"></i> Partners / Directors
+            <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txt-light);margin-left:4px">(optional — for firms, LLPs, Pvt Ltd)</span>
+          </label>
+          <button type="button" class="btn-outline-sm" onclick="addPartnerRow()">
+            <i class="ph ph-plus"></i> Add Partner
+          </button>
+        </div>
+        <div id="partner-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div id="no-partner-note" style="font-size:.76rem;color:var(--txt-muted);padding:8px 0;display:flex;align-items:center;gap:6px">
+          <i class="ph ph-info"></i> No partners added — this client is a sole proprietor / individual.
+        </div>
+      </div>
+
+      <div class="modal-footer-btns">
+        <button type="button" onclick="closeOverlay('client-modal')" class="btn-ghost">Cancel</button>
+        <button type="submit" class="btn-primary"><i class="ph ph-floppy-disk"></i> Save Client</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ░░ MAIN APP SHELL ░░ -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <span class="sb-title">NexCA</span>
+      <button id="sb-collapse-btn" class="sb-collapse-btn" title="Toggle Sidebar"><i class="ph ph-list"></i></button>
+    </div>
+
+    <div class="sb-search-wrap">
+      <i class="ph ph-magnifying-glass"></i>
+      <input type="text" id="global-search" placeholder="Search…" autocomplete="off">
+      <kbd>^K</kbd>
+    </div>
+
+    <nav class="sb-nav">
+      <div class="nav-section-lbl">WORKSPACE</div>
+      <a href="#" class="nav-link active" data-view="dashboard"><i class="ph ph-squares-four"></i><span>Dashboard</span></a>
+      <a href="#" class="nav-link" data-view="clients"><i class="ph ph-users-three"></i><span>All Clients</span></a>
+      <a href="#" class="nav-link" data-view="gst"><i class="ph ph-receipt"></i><span>GST Filings</span></a>
+      <a href="#" class="nav-link" data-view="it"><i class="ph ph-file-text"></i><span>IT Returns</span></a>
+      <a href="#" class="nav-link" data-view="fees"><i class="ph ph-currency-inr"></i><span>Fee Tracker</span></a>
+      <div class="nav-section-lbl">TOOLS</div>
+      <a href="#" class="nav-link" id="nav-calendar" onclick="openCalendar()"><i class="ph ph-calendar-dots"></i><span>Tax Calendar</span></a>
+      <a href="#" class="nav-link" id="nav-bulk-wa" onclick="openBulkWa()"><i class="ph ph-whatsapp-logo"></i><span>Bulk WhatsApp</span></a>
+      <a href="#" class="nav-link" data-view="calculator"><i class="ph ph-calculator"></i><span>Calculators</span></a>
+      <a href="#" class="nav-link" data-view="folders"><i class="ph ph-folders"></i><span>Network Folders</span></a>
+      <div class="nav-section-lbl">SYSTEM</div>
+      <a href="#" class="nav-link" data-view="settings"><i class="ph ph-gear-six"></i><span>Settings</span></a>
+    </nav>
+
+    <div class="sb-bottom">
+      <div class="theme-toggle-row">
+        <i class="ph ph-sun"></i>
+        <label class="toggle-switch">
+          <input type="checkbox" id="theme-toggle" onchange="toggleTheme(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <i class="ph ph-moon"></i>
+      </div>
+      <button class="shortcut-hint-btn" onclick="openOverlay('shortcuts-overlay')"><i class="ph ph-keyboard"></i> <span>Shortcuts</span></button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-area" id="main-area">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="tb-left">
+        <div class="tb-breadcrumb" id="breadcrumb">Dashboard</div>
+      </div>
+      <div class="tb-right">
+        <select id="active-year" class="year-pill" onchange="onYearChange()">
+          <option value="2024-2025">FY 2024–25</option>
+          <option value="2025-2026" selected>FY 2025–26</option>
+          <option value="2026-2027">FY 2026–27</option>
+        </select>
+        <input type="file" id="xlsx-import" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcel(this)">
+        <button class="tb-btn" onclick="document.getElementById('xlsx-import').click()"><i class="ph ph-upload-simple"></i> Import</button>
+        <button class="tb-btn accent" onclick="exportExcel()"><i class="ph ph-download-simple"></i> Export</button>
+        <div class="notif-wrap">
+          <button class="tb-icon-btn" id="notif-btn" onclick="toggleNotifPanel()">
+            <i class="ph ph-bell"></i>
+            <span class="notif-badge" id="notif-badge">0</span>
+          </button>
+        </div>
+        <button class="tb-btn primary" onclick="openAddClient()"><i class="ph ph-plus"></i> Add Client</button>
+      </div>
+    </header>
+
+    <!-- ░░ VIEWS ░░ -->
+    <main class="view-container">
+
+      <!-- ── DASHBOARD ── -->
+      <section id="view-dashboard" class="view active">
+        <div class="view-head">
+          <div>
+            <h1 id="greeting-text">Good morning! 🌅</h1>
+            <p class="view-sub" id="today-str"></p>
+          </div>
+          <div class="head-actions">
+            <button class="btn-outline-sm" onclick="openCalendar()"><i class="ph ph-calendar"></i> Tax Calendar</button>
+            <button class="btn-outline-sm" onclick="openBulkWa()"><i class="ph ph-whatsapp-logo" style="color:#25d366"></i> Bulk Send</button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="kpi-row" id="kpi-row"></div>
+
+        <!-- Charts + Alerts -->
+        <div class="dash-mid-row">
+          <div class="card chart-card">
+            <div class="card-head"><h4>Client Breakdown</h4></div>
+            <div class="chart-area"><canvas id="pie-chart"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <div class="card-head"><h4>Filing Completion</h4></div>
+            <div class="chart-area"><canvas id="bar-chart"></canvas></div>
+          </div>
+          <div class="card alert-card">
+            <div class="card-head"><h4><i class="ph ph-bell-ringing" style="color:var(--accent)"></i> Urgent Alerts</h4></div>
+            <div id="urgent-alerts" class="alert-list"></div>
+          </div>
+        </div>
+
+        <!-- Due dates -->
+        <div class="dash-bot-row">
+          <div class="card due-card">
+            <div class="card-head"><h4><i class="ph ph-calendar-check" style="color:var(--navy)"></i> Monthly Due Dates</h4></div>
+            <div id="due-dates-list" class="due-list"></div>
+          </div>
+          <div class="card due-card">
+            <div class="card-head"><h4><i class="ph ph-bank" style="color:var(--gold)"></i> Advance Tax Schedule</h4></div>
+            <div id="adv-tax-list" class="due-list"></div>
+          </div>
+          <div class="card recent-card">
+            <div class="card-head"><h4>Recent Activity</h4><button class="link-btn" onclick="navigateTo('clients')">View All</button></div>
+            <div id="recent-activity" class="activity-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── ALL CLIENTS ── -->
+      <section id="view-clients" class="view">
+        <div class="view-head">
+          <div><h1>All Clients</h1><p class="view-sub">Manage your complete client roster.</p></div>
+          <div class="head-actions">
+            <select id="clients-type-filter" class="sel-inp sm" onchange="renderClientsView()">
+              <option value="all">All Types</option>
+              <option value="gst">GST Only</option>
+              <option value="it">IT Only</option>
+              <option value="both">GST & IT</option>
+            </select>
+            <select id="clients-status-filter" class="sel-inp sm" onchange="renderClientsView()">
+              <option value="all">All Status</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+            </select>
+            <input type="text" id="clients-search" class="txt-inp sm" placeholder="Search…" oninput="renderClientsView()">
+          </div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap"><table class="data-tbl" id="clients-tbl">
+            <thead><tr>
+              <th><input type="checkbox" id="select-all-clients" onchange="toggleSelectAll(this)"></th>
+              <th>Client</th><th>Phone</th><th>PAN / GSTIN</th>
+              <th>Type</th><th>Health</th><th>Fee</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="clients-tbody"></tbody>
+          </table></div>
+          <div class="tbl-footer" id="clients-footer"></div>
+        </div>
+        <!-- Bulk action bar -->
+        <div id="bulk-action-bar" class="bulk-action-bar hidden">
+          <span id="bulk-count">0 selected</span>
+          <button class="btn-wa-send sm" onclick="bulkWaFromSelection()"><i class="ph ph-whatsapp-logo"></i> WhatsApp Selected</button>
+          <button class="btn-danger sm" onclick="bulkDeleteSelected()"><i class="ph ph-trash"></i> Delete Selected</button>
+        </div>
+      </section>
+
+      <!-- ── GST ── -->
+      <section id="view-gst" class="view">
+        <div class="view-head">
+          <div><h1>GST Filings</h1><p class="view-sub">Monthly return status for all GST registered clients.</p></div>
+          <div class="head-actions">
+            <select id="gst-month-sel" class="sel-inp sm" onchange="renderGstView()"></select>
+            <input type="text" id="gst-search" class="txt-inp sm" placeholder="Search…" oninput="renderGstView()">
+            <button class="btn-outline-sm" onclick="exportGstReport()"><i class="ph ph-download-simple"></i> Export</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap"><table class="data-tbl" id="gst-tbl">
+            <thead><tr>
+              <th>#</th><th>Name</th><th>GSTIN</th><th>Phone</th>
+              <th>GSTR-1</th><th>GSTR-3B</th><th>Docs Received</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="gst-tbody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- ── IT RETURNS ── -->
+      <section id="view-it" class="view">
+        <div class="view-head">
+          <div><h1>Income Tax Returns</h1><p class="view-sub">ITR status, acknowledgements, refunds and demands.</p></div>
+          <div class="head-actions">
+            <select id="it-status-filter" class="sel-inp sm" onchange="renderItView()">
+              <option value="all">All Status</option>
+              <option value="filed">Filed</option>
+              <option value="pending">Pending</option>
+            </select>
+            <input type="text" id="it-search" class="txt-inp sm" placeholder="Search…" oninput="renderItView()">
+            <button class="btn-outline-sm" onclick="exportItReport()"><i class="ph ph-download-simple"></i> Export</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="tbl-wrap"><table class="data-tbl" id="it-tbl">
+            <thead><tr>
+              <th>#</th><th>Name</th><th>PAN</th><th>ITR Type</th><th>Ack No.</th>
+              <th>Filed On</th><th>Refund</th><th>Outstanding</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="it-tbody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- ── FEE TRACKER ── -->
+      <section id="view-fees" class="view">
+        <div class="view-head">
+          <div><h1>Fee Tracker</h1><p class="view-sub">Track professional fees billed and collected per client.</p></div>
+          <div class="head-actions">
+            <button class="btn-outline-sm" onclick="exportFeeReport()"><i class="ph ph-download-simple"></i> Export</button>
+          </div>
+        </div>
+        <div class="kpi-row" id="fee-kpi-row"></div>
+        <div class="card" style="margin-top:20px">
+          <div class="tbl-wrap"><table class="data-tbl" id="fee-tbl">
+            <thead><tr>
+              <th>#</th><th>Client</th><th>Type</th>
+              <th>Annual Fee (₹)</th><th>Collected (₹)</th><th>Pending (₹)</th><th>Status</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="fee-tbody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- ── NETWORK FOLDERS ── -->
+      <section id="view-folders" class="view">
+        <div class="view-head">
+          <div><h1>Network Folders</h1><p class="view-sub">Browse client folders via the local file server.</p></div>
+        </div>
+        <div class="card folder-explorer">
+          <div class="folder-topbar">
+            <input type="text" id="folder-path-inp" class="txt-inp mono-inp" placeholder="\\CLIENT-2-PC\D\IT FILES\..." style="flex:1">
+            <button class="btn-primary" onclick="browseFolder()"><i class="ph ph-folder-open"></i> Browse</button>
+            <button class="btn-ghost" onclick="document.getElementById('folder-path-inp').value='\\\\CLIENT-2-PC'"><i class="ph ph-desktop"></i> Network PC</button>
+          </div>
+          <div id="folder-status" class="folder-status" style="display:none"></div>
+          <div id="folder-content" class="folder-content"></div>
+          <div class="server-note"><i class="ph ph-info"></i> Requires <strong>Start_Server.bat</strong> to be running. Server must be on port 3000.</div>
+        </div>
+      </section>
+
+      <!-- ── CALCULATORS ── -->
+      <section id="view-calculator" class="view">
+        <div class="view-head"><div><h1>Tax Calculators</h1><p class="view-sub">GST, Income Tax, Late Fees & TDS calculators.</p></div></div>
+        <div class="calc-grid">
+
+          <!-- GST CALC -->
+          <div class="card calc-card">
+            <div class="calc-banner gst-banner"><i class="ph ph-receipt"></i> GST Calculator</div>
+            <div class="calc-body">
+              <div class="fg"><label>Amount (₹)</label><input type="number" id="gst-amt" value="10000" class="txt-inp" oninput="calcGST()"></div>
+              <div class="fg-row">
+                <div class="fg"><label>Rate</label>
+                  <select id="gst-rate" class="sel-inp" onchange="calcGST()">
+                    <option>5</option><option>12</option><option selected>18</option><option>28</option>
+                  </select>
+                </div>
+                <div class="fg"><label>Mode</label>
+                  <select id="gst-mode" class="sel-inp" onchange="calcGST()">
+                    <option value="add">Add GST</option><option value="remove">Remove GST</option>
+                  </select>
+                </div>
+              </div>
+              <div class="calc-result" id="gst-result">
+                <div class="cr-row"><span>Base</span><strong id="gr-base">₹10,000.00</strong></div>
+                <div class="cr-row"><span>CGST</span><strong id="gr-cgst">—</strong></div>
+                <div class="cr-row"><span>SGST/UTGST</span><strong id="gr-sgst">—</strong></div>
+                <div class="cr-row"><span>IGST</span><strong id="gr-igst">—</strong></div>
+                <div class="cr-divider"></div>
+                <div class="cr-row total"><span>Total</span><strong id="gr-total">—</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- IT CALC -->
+          <div class="card calc-card">
+            <div class="calc-banner it-banner"><i class="ph ph-scales"></i> Income Tax (FY 2025–26)</div>
+            <div class="calc-body">
+              <div class="fg-row">
+                <div class="fg"><label>Annual Income (₹)</label><input type="number" id="it-income" value="1200000" class="txt-inp"></div>
+                <div class="fg"><label>Deductions – Old (₹)</label><input type="number" id="it-ded" value="150000" class="txt-inp"></div>
+              </div>
+              <button class="btn-primary full-btn" onclick="calcIT()"><i class="ph ph-arrow-right"></i> Compare Regimes</button>
+              <div class="regime-compare">
+                <div class="regime-box new-r">
+                  <div class="r-title">New Regime</div>
+                  <div class="cr-row sm"><span>Taxable</span><span id="itn-tax">—</span></div>
+                  <div class="cr-row sm"><span>Tax</span><span id="itn-slab">—</span></div>
+                  <div class="cr-row sm"><span>Cess 4%</span><span id="itn-cess">—</span></div>
+                  <div class="cr-divider"></div>
+                  <div class="cr-row sm bold"><span>Total</span><strong id="itn-total">—</strong></div>
+                </div>
+                <div class="regime-box old-r">
+                  <div class="r-title">Old Regime</div>
+                  <div class="cr-row sm"><span>Taxable</span><span id="ito-tax">—</span></div>
+                  <div class="cr-row sm"><span>Tax</span><span id="ito-slab">—</span></div>
+                  <div class="cr-row sm"><span>Cess 4%</span><span id="ito-cess">—</span></div>
+                  <div class="cr-divider"></div>
+                  <div class="cr-row sm bold"><span>Total</span><strong id="ito-total">—</strong></div>
+                </div>
+              </div>
+              <div id="it-rec" class="it-rec-banner"></div>
+            </div>
+          </div>
+
+          <!-- LATE FEE -->
+          <div class="card calc-card">
+            <div class="calc-banner late-banner"><i class="ph ph-clock-countdown"></i> Late Fee & Interest</div>
+            <div class="calc-body">
+              <div class="fg"><label>Tax Liability (₹)</label><input type="number" id="lf-liab" value="0" class="txt-inp"></div>
+              <div class="fg-row">
+                <div class="fg"><label>Due Date</label><input type="date" id="lf-due" class="txt-inp"></div>
+                <div class="fg"><label>Filed Date</label><input type="date" id="lf-filed" class="txt-inp"></div>
+              </div>
+              <label class="checkbox-row"><input type="checkbox" id="lf-nil"> NIL Return (₹20/day, cap ₹500)</label>
+              <button class="btn-danger full-btn" onclick="calcLate()"><i class="ph ph-calculator"></i> Calculate</button>
+              <div class="calc-result" id="lf-result">
+                <div class="cr-row"><span>Days Delayed</span><strong id="lf-days">—</strong></div>
+                <div class="cr-row"><span>Late Fee (capped)</span><strong id="lf-fee">—</strong></div>
+                <div class="cr-row"><span>Interest @ 18%</span><strong id="lf-int">—</strong></div>
+                <div class="cr-divider"></div>
+                <div class="cr-row total danger-total"><span>Total Penalty</span><strong id="lf-total">—</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TDS CALC -->
+          <div class="card calc-card">
+            <div class="calc-banner tds-banner"><i class="ph ph-percent"></i> TDS Calculator</div>
+            <div class="calc-body">
+              <div class="fg">
+                <label>Payment Nature</label>
+                <select id="tds-nature" class="sel-inp" onchange="calcTDS()">
+                  <option value="192" data-rate="30">Salary (192) — Slab Rate</option>
+                  <option value="194" data-rate="10">Dividend (194) — 10%</option>
+                  <option value="194A" data-rate="10">Interest Bank (194A) — 10%</option>
+                  <option value="194C_ind" data-rate="1">Contractor Individual (194C) — 1%</option>
+                  <option value="194C_co" data-rate="2">Contractor Company (194C) — 2%</option>
+                  <option value="194H" data-rate="5">Commission (194H) — 5%</option>
+                  <option value="194I" data-rate="10">Rent (194I) — 10%</option>
+                  <option value="194J" data-rate="10">Professional Fees (194J) — 10%</option>
+                </select>
+              </div>
+              <div class="fg"><label>Gross Payment (₹)</label><input type="number" id="tds-amount" value="100000" class="txt-inp" oninput="calcTDS()"></div>
+              <div class="fg"><label>PAN Available?</label>
+                <select id="tds-pan" class="sel-inp" onchange="calcTDS()">
+                  <option value="yes">Yes — Normal Rate</option>
+                  <option value="no">No — 20% (Sec 206AA)</option>
+                </select>
+              </div>
+              <div class="calc-result">
+                <div class="cr-row"><span>Applicable Rate</span><strong id="tds-rate-show">10%</strong></div>
+                <div class="cr-row"><span>TDS Amount</span><strong id="tds-amt-show">₹10,000</strong></div>
+                <div class="cr-divider"></div>
+                <div class="cr-row total"><span>Net Payment</span><strong id="tds-net-show">₹90,000</strong></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── SETTINGS ── -->
+      <section id="view-settings" class="view">
+        <div class="view-head"><div><h1>Settings</h1><p class="view-sub">Application preferences and data management.</p></div></div>
+        <div class="settings-grid">
+          <div class="card settings-card">
+            <h4><i class="ph ph-user-circle"></i> Practice Profile</h4>
+            <div class="fg"><label>Practice / Firm Name</label><input id="s-firm" class="txt-inp" placeholder="e.g. S. Sinthuja & Associates"></div>
+            <div class="fg"><label>Proprietor Name</label><input id="s-owner" class="txt-inp" placeholder="Your name"></div>
+            <div class="fg"><label>Membership No.</label><input id="s-memno" class="txt-inp mono-inp" placeholder="ICAI Membership Number"></div>
+            <div class="fg"><label>Office Phone</label><input id="s-phone" class="txt-inp" placeholder="Phone number"></div>
+            <button class="btn-primary" onclick="saveProfile()"><i class="ph ph-floppy-disk"></i> Save Profile</button>
+          </div>
+          <div class="card settings-card">
+            <h4><i class="ph ph-faders"></i> Preferences</h4>
+            <div class="pref-row"><span>Dark Mode</span>
+              <label class="toggle-switch"><input type="checkbox" id="s-dark-toggle" onchange="toggleTheme(this.checked)"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="pref-row"><span>Default FY</span>
+              <select id="s-default-fy" class="sel-inp sm">
+                <option value="2024-2025">2024-25</option>
+                <option value="2025-2026" selected>2025-26</option>
+                <option value="2026-2027">2026-27</option>
+              </select>
+            </div>
+            <div class="pref-row"><span>App Version</span><span class="version-badge">NexCA v1.0</span></div>
+          </div>
+          <div class="card settings-card danger-zone">
+            <h4><i class="ph ph-warning-octagon" style="color:var(--danger)"></i> Danger Zone</h4>
+            <p>Permanently erase all client data, filings, activity and credentials from this browser. This cannot be undone.</p>
+            <button class="btn-danger" onclick="deleteAllData()"><i class="ph ph-trash"></i> Wipe All Data</button>
+          </div>
+          <div class="card settings-card">
+            <h4><i class="ph ph-hard-drives"></i> Data Management</h4>
+            <div class="data-mgmt-btns">
+              <button class="btn-outline-sm full-btn" onclick="document.getElementById('xlsx-import').click()"><i class="ph ph-upload-simple"></i> Import Excel</button>
+              <button class="btn-outline-sm full-btn" onclick="exportExcel()"><i class="ph ph-download-simple"></i> Export All Clients</button>
+              <button class="btn-outline-sm full-btn" onclick="exportGstReport()"><i class="ph ph-receipt"></i> Export GST Report</button>
+              <button class="btn-outline-sm full-btn" onclick="exportItReport()"><i class="ph ph-file-text"></i> Export IT Report</button>
+              <button class="btn-outline-sm full-btn" style="color:var(--amber);border-color:rgba(217,119,6,.3)" onclick="fixAllPhones()"><i class="ph ph-phone"></i> Fix Imported Phone Numbers</button>
+            </div>
+            <p style="font-size:.72rem;color:var(--txt-muted);margin-top:10px"><i class="ph ph-info"></i> "Fix Phone Numbers" repairs phones imported from Excel that show as decimals (e.g. 9876543210.0 → 9876543210).</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

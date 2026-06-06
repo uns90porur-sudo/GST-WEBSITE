@@ -1133,7 +1133,7 @@ window.sendBulkWa = function() {
   if (!rows.length) { alert('Select at least one client.'); return; }
   let sent=0;
   rows.forEach(r=>{
-    const id=parseInt(r.dataset.id);
+    const id=Number(r.dataset.id);
     const c=customers.find(x=>x.id==id); if(!c) return;
     const num=(c.phone||'').replace(/\D/g,''); if(num.length<10) return;
     setTimeout(()=>window.open(`https://wa.me/91${num.slice(-10)}?text=${encodeURIComponent(msg)}`,'_blank'), sent*800);
